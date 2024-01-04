@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:gps_app/screens/home.dart';
+import 'package:gps_app/screens/home_screen.dart';
 import 'package:lottie/lottie.dart';
 
 class LoadingScreen extends StatefulWidget {

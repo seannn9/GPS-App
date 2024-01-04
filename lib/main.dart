@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/loading.dart';
+import 'screens/loading_screen.dart';
 
 void main() {
   runApp(const GpsApp());
@@ -11,8 +11,9 @@ class GpsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        theme: ThemeData.dark(),
-        home: const LoadingScreen()
+        home: const LoadingScreen(),
+        theme: ThemeData.light(),
+        darkTheme: ThemeData.dark(),
     );
   }
 }
