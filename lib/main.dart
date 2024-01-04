@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/loading_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const GpsApp());
