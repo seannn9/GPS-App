@@ -4,7 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:gps_app/services/user_location.dart';
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:gps_app/services/input_location.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -31,7 +31,7 @@ class _HomePageState extends State<HomePage> {
     )
   };
 
-  void getMyLocation() async {
+  void goToMyLocation() async {
     await UserLocation().getMyLocation();
     double lon = UserLocation().lon;
     double lat = UserLocation().lat;
@@ -58,6 +58,42 @@ class _HomePageState extends State<HomePage> {
         )
       )
     );
+  }
+
+  Future<void> saveHomeAddress(Map<String, dynamic> place) async {
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    preferences.setDouble('homeLat', place['geometry']['location']['lat']);
+    preferences.setDouble('homeLon', place['geometry']['location']['lng']);
+  }
+
+  Future<void> loadHomeAddress() async {
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    double? homeLat = preferences.getDouble('homeLat');
+    double? homeLon = preferences.getDouble('homeLon');
+
+    if (homeLat != null && homeLon != null) {
+      setState(() {
+        _initialPosition = CameraPosition(
+            target: LatLng(homeLon, homeLat),
+            zoom: 15
+        );
+        _markers = {
+          Marker(
+            markerId: const MarkerId("source"),
+            position: LatLng(homeLat, homeLon),
+          )
+        };
+      });
+      GoogleMapController controller = await _controller.future;
+      controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: LatLng(homeLat, homeLon),
+            zoom: 15,
+          )
+        )
+      );
+    }
   }
 
   Future<void> goToInputPlace(Map<String, dynamic> place) async {
@@ -88,7 +124,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    getMyLocation();
+    // goToMyLocation();
+    loadHomeAddress();
   }
 
   @override
@@ -157,7 +194,7 @@ class _HomePageState extends State<HomePage> {
           children: [
             FloatingActionButton.small(
               onPressed: () {
-                getMyLocation();
+                goToMyLocation();
                 _key.currentState?.toggle();
               },
               child: const Icon(
@@ -182,7 +219,11 @@ class _HomePageState extends State<HomePage> {
               )
             ),
             FloatingActionButton.small(
-              onPressed: () {},
+              onPressed: () async{
+                _key.currentState?.toggle();
+                var place = await InputLocation().getPlace(_searchController.text);
+                saveHomeAddress(place);
+              },
               child: const Icon(
                 Icons.home
               )
