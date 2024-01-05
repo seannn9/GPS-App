@@ -1,15 +1,15 @@
 import 'package:geolocator/geolocator.dart';
 
-class Location {
+class UserLocation {
   double lon = 0, lat = 0;
 
-  static final Location _instance = Location._internal();
+  static final UserLocation _instance = UserLocation._internal();
 
-  factory Location() {
+  factory UserLocation() {
     return _instance;
   }
 
-  Location._internal();
+  UserLocation._internal();
 
   Future getMyLocation() async {
     try {

@@ -4,7 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:gps_app/services/user_location.dart';
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:gps_app/services/input_location.dart';
-// import 'package:location/location.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,18 +16,39 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
   final _key = GlobalKey<ExpandableFabState>();
-  TextEditingController _searchController = TextEditingController();
-  FocusNode _searchFocusNode = FocusNode();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
-  static const CameraPosition _kGooglePlex = CameraPosition(
+  static CameraPosition _initialPosition = const CameraPosition(
     target: LatLng(37.42796133580664, -122.085749655962),
     zoom: 14.4746,
   );
 
+  Set<Marker> _markers = {
+    const Marker(
+      markerId: MarkerId("source"),
+      position: LatLng(37.42796133580664, -122.085749655962)
+    )
+  };
+
   void getMyLocation() async {
-    await Location().getMyLocation();
-    double lon = Location().lon;
-    double lat = Location().lat;
+    await UserLocation().getMyLocation();
+    double lon = UserLocation().lon;
+    double lat = UserLocation().lat;
+
+    setState(() {
+      _initialPosition = CameraPosition(
+        target: LatLng(lat, lon),
+        zoom: 15
+      );
+      _markers = {
+        Marker(
+          markerId: const MarkerId("source"),
+          position: LatLng(lat, lon),
+        )
+      };
+    });
+
     GoogleMapController controller = await _controller.future;
     controller.animateCamera(
       CameraUpdate.newCameraPosition(
@@ -39,34 +60,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // LocationData? currentLocation;
-  //
-  // void getMyLocation() {
-  //   Location location = Location();
-  //   location.getLocation().then((location) {
-  //     currentLocation = location;
-  //   });
-  // }
-  //
-  // void goToMyLocation() async{
-  //   double lon = currentLocation!.longitude!;
-  //   double lat = currentLocation!.latitude!;
-  //   GoogleMapController controller = await _controller.future;
-  //   controller.animateCamera(
-  //     CameraUpdate.newCameraPosition(
-  //       CameraPosition(
-  //         target: LatLng(lat, lon),
-  //         zoom: 15,
-  //       )
-  //     )
-  //   );
-  // }
-
-
   Future<void> goToInputPlace(Map<String, dynamic> place) async {
     final double lat = place['geometry']['location']['lat'];
     final double lon = place['geometry']['location']['lng'];
     final GoogleMapController controller = await _controller.future;
+
+    setState(() {
+      _markers = {
+        Marker(
+          markerId: const MarkerId("destination"),
+          position: LatLng(lat, lon),
+        )
+      };
+    });
+
     await controller.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
@@ -77,11 +84,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   getMyLocation();
-  // }
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    getMyLocation();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,16 +98,11 @@ class _HomePageState extends State<HomePage> {
           children: [
             GoogleMap(
               mapType: MapType.normal,
-              initialCameraPosition: _kGooglePlex,
+              initialCameraPosition: _initialPosition,
               onMapCreated: (GoogleMapController controller) {
                 _controller.complete(controller);
               },
-              markers: {
-                const Marker(
-                  markerId: MarkerId("source"),
-                  position: LatLng(37.42796133580664, -122.085749655962),
-                )
-              },
+              markers: _markers
             ),
             Positioned(
               top: 40.0,
@@ -142,7 +145,7 @@ class _HomePageState extends State<HomePage> {
                   )
                 ],
               )
-            )
+            ),
           ],
         ),
         floatingActionButtonLocation: ExpandableFab.location,
@@ -150,7 +153,7 @@ class _HomePageState extends State<HomePage> {
           key: _key,
           type: ExpandableFabType.fan,
           pos: ExpandableFabPos.left,
-          distance: 85.0,
+          distance: 100.0,
           children: [
             FloatingActionButton.small(
               onPressed: () {
@@ -177,9 +180,15 @@ class _HomePageState extends State<HomePage> {
               child: const Icon(
                 Icons.telegram
               )
+            ),
+            FloatingActionButton.small(
+              onPressed: () {},
+              child: const Icon(
+                Icons.home
+              )
             )
           ],
-        )
+        ),
     );
   }
 }
