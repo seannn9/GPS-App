@@ -7,6 +7,7 @@ import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:gps_app/services/input_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,7 +20,33 @@ class _HomePageState extends State<HomePage> {
   final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
   final _key = GlobalKey<ExpandableFabState>();
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _destinationController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+
+  Set<Polyline> _polylines = Set<Polyline>();
+  int _polylineCounter = 1;
+
+  bool _showDestinationSearch = false;
+
+  void clickGpsButton() {
+    setState(() {
+      _showDestinationSearch = !_showDestinationSearch;
+    });
+  }
+
+  void setPolyline(List<PointLatLng> points) {
+    final String polylineIdVal = 'polyline$_polylineCounter';
+    _polylineCounter++;
+
+    _polylines.add(
+      Polyline(polylineId: PolylineId(polylineIdVal),
+      width: 4,
+      color: Colors.blue,
+      points: points.map(
+          (point) => LatLng(point.latitude, point.longitude)
+      ).toList(),
+    ));
+  }
 
   static CameraPosition _initialPosition = const CameraPosition(
     target: LatLng(37.42796133580664, -122.085749655962),
@@ -128,6 +155,30 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> startGpsRoute(double sLat, double sLon, double dLat, double dLon, Map<String, dynamic> boundsNe, Map<String, dynamic> boundsSw) async{
+    final GoogleMapController controller = await _controller.future;
+
+    setState(() {
+      _markers = {
+        Marker(
+          markerId: const MarkerId("source"),
+          position: LatLng(sLat, sLon),
+        ),
+        Marker(
+          markerId: const MarkerId("destination"),
+          position: LatLng(dLat, dLon)
+        )
+      };
+    });
+
+    await controller.animateCamera(
+        CameraUpdate.newLatLngBounds(LatLngBounds(
+            southwest: LatLng(boundsSw['lat'], boundsSw['lng']),
+            northeast: LatLng(boundsNe['lat'], boundsNe['lng'])
+        ), 25)
+    );
+  }
+
   @override
   void initState() {
     // TODO: implement initState
@@ -148,6 +199,7 @@ class _HomePageState extends State<HomePage> {
                 _controller.complete(controller);
               },
               markers: _markers,
+              polylines: _polylines,
               zoomControlsEnabled: false,
               mapToolbarEnabled: false,
             ),
@@ -171,16 +223,17 @@ class _HomePageState extends State<HomePage> {
                       ),
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
-                        hintText: "Search",
+                        hintText: _showDestinationSearch ? "Origin" : "Search",
                         hintStyle: const TextStyle(
                           color: Colors.grey
                         ),
                         border: InputBorder.none,
-                        suffixIcon: IconButton(
+                        suffixIcon: _showDestinationSearch ? null :
+                        IconButton(
                           onPressed: () async{
-                           var place = await InputLocation().getPlace(_searchController.text);
-                           FocusManager.instance.primaryFocus?.unfocus();
-                           goToInputPlace(place);
+                            var place = await InputLocation().getPlace(_searchController.text);
+                            FocusManager.instance.primaryFocus?.unfocus();
+                            goToInputPlace(place);
                           },
                           icon: const Icon(
                             Icons.search,
@@ -189,7 +242,43 @@ class _HomePageState extends State<HomePage> {
                         )
                       ),
                     ),
-                  )
+                  ),
+                  if (_showDestinationSearch)
+                    Container(
+                      height: 50.0,
+                      margin: const EdgeInsets.only(top: 10.0),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20.0),
+                        color: Colors.white,
+                      ),
+                      child: TextFormField(
+                        controller: _destinationController,
+                        style: const TextStyle(
+                          color: Colors.black
+                        ),
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+                          hintText: "Destination",
+                          hintStyle: const TextStyle(
+                            color: Colors.grey
+                          ),
+                          border: InputBorder.none,
+                          suffixIcon: IconButton(
+                            onPressed: () async{
+                              var directions = await InputLocation().getDirection(_searchController.text, _destinationController.text);
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              startGpsRoute(directions['start_location']['lat'], directions['start_location']['lng'],
+                              directions['end_location']['lat'], directions['end_location']['lng'], 
+                                directions['bounds_ne'], directions['bounds_sw']);
+                              setPolyline(directions['polyline_decoded']);
+                            },
+                            icon: const Icon(
+                              Icons.arrow_right
+                            ),
+                          )
+                        ),
+                      )
+                    )
                 ],
               )
             ),
@@ -213,6 +302,9 @@ class _HomePageState extends State<HomePage> {
             ),
             FloatingActionButton.small(
               onPressed: () {
+                if (_showDestinationSearch) {
+                  clickGpsButton();
+                }
                 _searchFocusNode.requestFocus();
                 _key.currentState?.toggle();
               },
@@ -222,6 +314,9 @@ class _HomePageState extends State<HomePage> {
             ),
             FloatingActionButton.small(
               onPressed: () {
+                clickGpsButton();
+                _polylines.clear();
+                _markers.removeWhere((marker) => marker.markerId.value == "destination");
                 _key.currentState?.toggle();
               },
               child: const Icon(
@@ -239,6 +334,7 @@ class _HomePageState extends State<HomePage> {
                   saveHomeAddress(place);
                 }
                 _searchController.clear();
+                _destinationController.clear();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     elevation: 0,
