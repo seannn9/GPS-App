@@ -8,6 +8,7 @@ import 'package:gps_app/services/input_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:location/location.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,10 +28,15 @@ class _HomePageState extends State<HomePage> {
   int _polylineCounter = 1;
 
   bool _showDestinationSearch = false;
+  bool _showTrackingFab = false;
+
+  Location _locationController = new Location();
+  LatLng? _currentPosition = null;
 
   void clickGpsButton() {
     setState(() {
       _showDestinationSearch = !_showDestinationSearch;
+      _showTrackingFab = _showDestinationSearch;
     });
   }
 
@@ -179,6 +185,45 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> getLocationUpdate() async{
+    bool _serviceEnabled;
+    PermissionStatus _permissionGranted;
+    var directions = await InputLocation().getDirection(_searchController.text, _destinationController.text);
+
+    _serviceEnabled = await _locationController.serviceEnabled();
+    if (_serviceEnabled) {
+      _serviceEnabled = await _locationController.requestService();
+    } else {
+      return;
+    }
+
+    _permissionGranted = await _locationController.hasPermission();
+    if (_permissionGranted == PermissionStatus.denied) {
+      _permissionGranted = await _locationController.requestPermission();
+      if (_permissionGranted != PermissionStatus.granted) {
+        return;
+      }
+    } 
+    
+    _locationController.onLocationChanged.listen((LocationData currentLocation) {
+      if (currentLocation.latitude != null && currentLocation.longitude != null) {
+        setState(() {
+          _currentPosition = LatLng(currentLocation.latitude!, currentLocation.longitude!);
+          _markers = {
+            Marker(
+              markerId: MarkerId("source"),
+              position: _currentPosition!,
+            ),
+            Marker(
+              markerId: MarkerId("destination"),
+              position: LatLng(directions['end_location']['lat'], directions['end_location']['lng'])
+            )
+          };
+        });
+      }
+    });
+  }
+
   @override
   void initState() {
     // TODO: implement initState
@@ -273,15 +318,28 @@ class _HomePageState extends State<HomePage> {
                               setPolyline(directions['polyline_decoded']);
                             },
                             icon: const Icon(
-                              Icons.arrow_right
+                              Icons.directions
                             ),
                           )
                         ),
                       )
-                    )
+                    ),
                 ],
               )
             ),
+            if (_showTrackingFab)
+              Container(
+                margin: const EdgeInsets.all(15.0),
+                child: Align(
+                  alignment: Alignment.bottomRight,
+                  child: FloatingActionButton(
+                    onPressed: () {
+                      getLocationUpdate();
+                    },
+                    child: const Icon(Icons.telegram)
+                  )
+                ),
+              )
           ],
         ),
         floatingActionButtonLocation: ExpandableFab.location,
@@ -320,7 +378,7 @@ class _HomePageState extends State<HomePage> {
                 _key.currentState?.toggle();
               },
               child: const Icon(
-                Icons.telegram
+                Icons.directions
               )
             ),
             FloatingActionButton.small(
