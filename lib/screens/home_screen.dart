@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:gps_app/services/user_location.dart';
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:gps_app/services/input_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -58,6 +60,12 @@ class _HomePageState extends State<HomePage> {
         )
       )
     );
+  }
+
+  Future<void> saveCurrentLocationAsHome(double lat, double lon) async {
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    preferences.setDouble('homeLat', lat);
+    preferences.setDouble('homeLon', lon);
   }
 
   Future<void> saveHomeAddress(Map<String, dynamic> place) async {
@@ -139,7 +147,9 @@ class _HomePageState extends State<HomePage> {
               onMapCreated: (GoogleMapController controller) {
                 _controller.complete(controller);
               },
-              markers: _markers
+              markers: _markers,
+              zoomControlsEnabled: false,
+              mapToolbarEnabled: false,
             ),
             Positioned(
               top: 40.0,
@@ -221,8 +231,25 @@ class _HomePageState extends State<HomePage> {
             FloatingActionButton.small(
               onPressed: () async{
                 _key.currentState?.toggle();
-                var place = await InputLocation().getPlace(_searchController.text);
-                saveHomeAddress(place);
+                if (_searchController.text.isEmpty) {
+                  await UserLocation().getMyLocation();
+                  saveCurrentLocationAsHome(UserLocation().lat, UserLocation().lon);
+                } else {
+                  var place = await InputLocation().getPlace(_searchController.text);
+                  saveHomeAddress(place);
+                }
+                _searchController.clear();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    elevation: 0,
+                    backgroundColor: Colors.transparent,
+                    content: AwesomeSnackbarContent(
+                      title: 'Success!',
+                      message: 'Successfully set location as home address',
+                      contentType: ContentType.success,
+                    )
+                  )
+                );
               },
               child: const Icon(
                 Icons.home
