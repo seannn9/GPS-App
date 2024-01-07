@@ -33,14 +33,25 @@ class _HomePageState extends State<HomePage> {
   Location _locationController = new Location();
   LatLng? _currentPosition = null;
 
+  StreamSubscription<LocationData>? _locationSubscription;
+  bool _isLocationUpdateActive = false;
+
+  // shows the destination search bar and the toggle FAB (getLocationUpdate)
   void clickGpsButton() {
+    stopLocationUpdates();
     setState(() {
       _showDestinationSearch = !_showDestinationSearch;
       _showTrackingFab = _showDestinationSearch;
     });
+
+    if (!_showDestinationSearch) {
+      _markers.removeWhere((marker) => marker.markerId.value == "source");
+    }
   }
 
+  // processes the direction api to make a polyline
   void setPolyline(List<PointLatLng> points) {
+    _polylines.clear();
     final String polylineIdVal = 'polyline$_polylineCounter';
     _polylineCounter++;
 
@@ -54,11 +65,13 @@ class _HomePageState extends State<HomePage> {
     ));
   }
 
+  // initial camera position if user doesn't have a home saved
   static CameraPosition _initialPosition = const CameraPosition(
     target: LatLng(37.42796133580664, -122.085749655962),
     zoom: 14.4746,
   );
 
+  // initial markers if no home is saved
   Set<Marker> _markers = {
     const Marker(
       markerId: MarkerId("source"),
@@ -66,6 +79,7 @@ class _HomePageState extends State<HomePage> {
     )
   };
 
+  // gets the user's current location using geolocator
   void goToMyLocation() async {
     await UserLocation().getMyLocation();
     double lon = UserLocation().lon;
@@ -78,7 +92,7 @@ class _HomePageState extends State<HomePage> {
       );
       _markers = {
         Marker(
-          markerId: const MarkerId("source"),
+          markerId: const MarkerId("user"),
           position: LatLng(lat, lon),
         )
       };
@@ -95,18 +109,21 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // enables user to set their current location as home (what the app defaults to when opening)
   Future<void> saveCurrentLocationAsHome(double lat, double lon) async {
     SharedPreferences preferences = await SharedPreferences.getInstance();
     preferences.setDouble('homeLat', lat);
     preferences.setDouble('homeLon', lon);
   }
 
+  // enables user to save any address as home
   Future<void> saveHomeAddress(Map<String, dynamic> place) async {
     SharedPreferences preferences = await SharedPreferences.getInstance();
     preferences.setDouble('homeLat', place['geometry']['location']['lat']);
     preferences.setDouble('homeLon', place['geometry']['location']['lng']);
   }
 
+  // loads whatever location is stored in home (initState)
   Future<void> loadHomeAddress() async {
     SharedPreferences preferences = await SharedPreferences.getInstance();
     double? homeLat = preferences.getDouble('homeLat');
@@ -137,6 +154,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // goes to the location that the user inputs
   Future<void> goToInputPlace(Map<String, dynamic> place) async {
     final double lat = place['geometry']['location']['lat'];
     final double lon = place['geometry']['location']['lng'];
@@ -161,6 +179,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // shows the polyline between the source and the location
   Future<void> startGpsRoute(double sLat, double sLon, double dLat, double dLon, Map<String, dynamic> boundsNe, Map<String, dynamic> boundsSw) async{
     final GoogleMapController controller = await _controller.future;
 
@@ -185,6 +204,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // For updating the location of the user (marker) in the map
   Future<void> getLocationUpdate() async{
     bool _serviceEnabled;
     PermissionStatus _permissionGranted;
@@ -203,24 +223,50 @@ class _HomePageState extends State<HomePage> {
       if (_permissionGranted != PermissionStatus.granted) {
         return;
       }
-    } 
-    
-    _locationController.onLocationChanged.listen((LocationData currentLocation) {
+    }
+
+    _locationSubscription?.cancel();
+
+    _locationSubscription = _locationController.onLocationChanged.listen((LocationData currentLocation) {
       if (currentLocation.latitude != null && currentLocation.longitude != null) {
         setState(() {
           _currentPosition = LatLng(currentLocation.latitude!, currentLocation.longitude!);
           _markers = {
             Marker(
-              markerId: MarkerId("source"),
+              markerId: const MarkerId("user"),
               position: _currentPosition!,
             ),
+            if (_showDestinationSearch)
             Marker(
-              markerId: MarkerId("destination"),
+                markerId: const MarkerId("source"),
+                position: LatLng(directions['start_location']['lat'], directions['start_location']['lng'])
+            ),
+            Marker(
+              markerId: const MarkerId("destination"),
               position: LatLng(directions['end_location']['lat'], directions['end_location']['lng'])
             )
           };
+          print(_currentPosition);
         });
       }
+    });
+  }
+
+  // Stop the live updates from getLocationUpdate
+  void stopLocationUpdates() {
+    _locationSubscription?.cancel();
+  }
+
+  // Updates the FAB's icon and function (start and stop location update)
+  void toggleLocationUpdate() {
+    if (_isLocationUpdateActive) {
+      stopLocationUpdates();
+    } else {
+      getLocationUpdate();
+    }
+
+    setState(() {
+      _isLocationUpdateActive = !_isLocationUpdateActive;
     });
   }
 
@@ -313,7 +359,7 @@ class _HomePageState extends State<HomePage> {
                               var directions = await InputLocation().getDirection(_searchController.text, _destinationController.text);
                               FocusManager.instance.primaryFocus?.unfocus();
                               startGpsRoute(directions['start_location']['lat'], directions['start_location']['lng'],
-                              directions['end_location']['lat'], directions['end_location']['lng'], 
+                              directions['end_location']['lat'], directions['end_location']['lng'],
                                 directions['bounds_ne'], directions['bounds_sw']);
                               setPolyline(directions['polyline_decoded']);
                             },
@@ -333,13 +379,15 @@ class _HomePageState extends State<HomePage> {
                 child: Align(
                   alignment: Alignment.bottomRight,
                   child: FloatingActionButton(
+                    backgroundColor: _isLocationUpdateActive? Colors.red: Colors.green,
                     onPressed: () {
-                      getLocationUpdate();
+                      toggleLocationUpdate();
                     },
-                    child: const Icon(Icons.telegram)
+                    child: _isLocationUpdateActive? const Icon(Icons.exit_to_app)
+                        : const Icon(Icons.telegram)
                   )
                 ),
-              )
+              ),
           ],
         ),
         floatingActionButtonLocation: ExpandableFab.location,
@@ -362,6 +410,11 @@ class _HomePageState extends State<HomePage> {
               onPressed: () {
                 if (_showDestinationSearch) {
                   clickGpsButton();
+                  if (_isLocationUpdateActive) {
+                    setState(() {
+                      _isLocationUpdateActive = !_isLocationUpdateActive;
+                    });
+                  }
                 }
                 _searchFocusNode.requestFocus();
                 _key.currentState?.toggle();
