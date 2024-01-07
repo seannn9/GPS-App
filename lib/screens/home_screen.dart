@@ -479,6 +479,18 @@ class _HomePageState extends State<HomePage> {
             )
           ],
         ),
+      bottomNavigationBar: BottomAppBar(
+        color: Colors.black,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            IconButton(onPressed: () {}, icon: Icon(Icons.home), tooltip: "Set displayed location as home"),
+            IconButton(onPressed: () {}, icon: Icon(Icons.search), tooltip: "Search for a location",),
+            IconButton(onPressed: () {}, icon: Icon(Icons.my_location), tooltip: "Go to your current location"),
+            IconButton(onPressed: () {}, icon: Icon(Icons.directions), tooltip: "Get direction between two locations",),
+          ],
+        )
+      ),
     );
   }
 }
