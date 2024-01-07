@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:gps_app/services/user_location.dart';
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
@@ -35,6 +34,8 @@ class _HomePageState extends State<HomePage> {
 
   StreamSubscription<LocationData>? _locationSubscription;
   bool _isLocationUpdateActive = false;
+
+  String? _currentAddress;
 
   // shows the destination search bar and the toggle FAB (getLocationUpdate)
   void clickGpsButton() {
@@ -237,10 +238,16 @@ class _HomePageState extends State<HomePage> {
               position: _currentPosition!,
             ),
             if (_showDestinationSearch)
-            Marker(
-                markerId: const MarkerId("source"),
-                position: LatLng(directions['start_location']['lat'], directions['start_location']['lng'])
-            ),
+              if (_searchController.text.isEmpty)
+                Marker(
+                    markerId: const MarkerId("source"),
+                    position: _currentPosition!,
+                ),
+              if (_searchController.text.isNotEmpty)
+                Marker(
+                  markerId: const MarkerId("source"),
+                  position: LatLng(directions['start_location']['lat'], directions['start_location']['lng'])
+                ),
             Marker(
               markerId: const MarkerId("destination"),
               position: LatLng(directions['end_location']['lat'], directions['end_location']['lng'])
@@ -356,11 +363,19 @@ class _HomePageState extends State<HomePage> {
                           border: InputBorder.none,
                           suffixIcon: IconButton(
                             onPressed: () async{
-                              var directions = await InputLocation().getDirection(_searchController.text, _destinationController.text);
+                              if (_searchController.text.isEmpty) {
+                                await UserLocation().getMyLocation();
+                                double lat = UserLocation().lat;
+                                double lon = UserLocation().lon;
+                                _currentAddress = "$lat,$lon";
+                              } else {
+                                _currentAddress = _searchController.text;
+                              }
+                              var directions = await InputLocation().getDirection(_currentAddress!, _destinationController.text);
                               FocusManager.instance.primaryFocus?.unfocus();
                               startGpsRoute(directions['start_location']['lat'], directions['start_location']['lng'],
-                              directions['end_location']['lat'], directions['end_location']['lng'],
-                                directions['bounds_ne'], directions['bounds_sw']);
+                                  directions['end_location']['lat'], directions['end_location']['lng'],
+                                  directions['bounds_ne'], directions['bounds_sw']);
                               setPolyline(directions['polyline_decoded']);
                             },
                             icon: const Icon(

@@ -1,6 +1,9 @@
+import 'dart:developer';
+
 import 'package:http/http.dart';
 import 'dart:convert';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
+import 'package:gps_app/services/user_location.dart';
 
 class InputLocation {
   final String key = 'AIzaSyCDFIZrPYdUO7la8j3khAgVQFbGQ7ld9Pk';
@@ -23,7 +26,6 @@ class InputLocation {
   }
 
   Future <Map<String, dynamic>> getDirection(String source, String destination) async{
-
     Uri url = Uri.parse('https://maps.googleapis.com/maps/api/directions/json?origin=$source&destination=$destination&key=$key');
     Response response = await get(url);
     var data = response.body;
