@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:gps_app/services/user_location.dart';
-import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:gps_app/services/input_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
@@ -18,7 +17,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final Completer<GoogleMapController> _controller = Completer<GoogleMapController>();
-  final _key = GlobalKey<ExpandableFabState>();
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _destinationController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -36,6 +34,9 @@ class _HomePageState extends State<HomePage> {
   bool _isLocationUpdateActive = false;
 
   String? _currentAddress;
+
+  String? displayedDuration;
+  String? displayedDistance;
 
   // shows the destination search bar and the toggle FAB (getLocationUpdate)
   void clickGpsButton() {
@@ -236,6 +237,7 @@ class _HomePageState extends State<HomePage> {
             Marker(
               markerId: const MarkerId("user"),
               position: _currentPosition!,
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue)
             ),
             if (_showDestinationSearch)
               if (_searchController.text.isEmpty)
@@ -250,10 +252,15 @@ class _HomePageState extends State<HomePage> {
                 ),
             Marker(
               markerId: const MarkerId("destination"),
-              position: LatLng(directions['end_location']['lat'], directions['end_location']['lng'])
+              position: LatLng(directions['end_location']['lat'], directions['end_location']['lng']),
+              infoWindow: InfoWindow(
+                title: "Duration: $displayedDuration",
+                snippet: "Distance: $displayedDistance"
+              )
             )
           };
           print(_currentPosition);
+          cameraFollowUser(_currentPosition!);
         });
       }
     });
@@ -277,6 +284,21 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // update the camera when on gps mode
+  Future<void> cameraFollowUser(LatLng position) async {
+    final GoogleMapController controller = await _controller.future;
+    CameraPosition newCameraPosition = CameraPosition(target: position, zoom: 13);
+    await controller.animateCamera(CameraUpdate.newCameraPosition(newCameraPosition));
+  }
+
+  // get the duration of the travel
+  void displayDurationAndDistance(Map<String, dynamic> duration, Map<String, dynamic> distance) {
+    setState(() {
+      displayedDistance = distance as String?;
+      displayedDuration = duration as String?;
+    });
+  }
+
   @override
   void initState() {
     // TODO: implement initState
@@ -292,6 +314,7 @@ class _HomePageState extends State<HomePage> {
           children: [
             GoogleMap(
               mapType: MapType.normal,
+              compassEnabled: false,
               initialCameraPosition: _initialPosition,
               onMapCreated: (GoogleMapController controller) {
                 _controller.complete(controller);
@@ -311,7 +334,11 @@ class _HomePageState extends State<HomePage> {
                     height: 50.0,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20.0),
-                      color: Colors.white
+                      color: Colors.white,
+                      border: Border.all(
+                        color: Colors.green,
+                        width: 2.0
+                      )
                     ),
                     child: TextFormField(
                       controller: _searchController,
@@ -326,6 +353,7 @@ class _HomePageState extends State<HomePage> {
                           color: Colors.grey
                         ),
                         border: InputBorder.none,
+                        prefixIcon: !_showDestinationSearch ? null : const Icon(Icons.my_location),
                         suffixIcon: _showDestinationSearch ? null :
                         IconButton(
                           onPressed: () async{
@@ -348,6 +376,10 @@ class _HomePageState extends State<HomePage> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20.0),
                         color: Colors.white,
+                        border: Border.all(
+                          color: Colors.green,
+                          width: 2.0
+                        )
                       ),
                       child: TextFormField(
                         controller: _destinationController,
@@ -361,7 +393,9 @@ class _HomePageState extends State<HomePage> {
                             color: Colors.grey
                           ),
                           border: InputBorder.none,
+                          prefixIcon: const Icon(Icons.location_on_outlined),
                           suffixIcon: IconButton(
+                            color: Colors.blue,
                             onPressed: () async{
                               if (_searchController.text.isEmpty) {
                                 await UserLocation().getMyLocation();
@@ -377,6 +411,7 @@ class _HomePageState extends State<HomePage> {
                                   directions['end_location']['lat'], directions['end_location']['lng'],
                                   directions['bounds_ne'], directions['bounds_sw']);
                               setPolyline(directions['polyline_decoded']);
+                              displayDurationAndDistance(directions['duration']['text'], directions['distance']['text']);
                             },
                             icon: const Icon(
                               Icons.directions
@@ -394,6 +429,7 @@ class _HomePageState extends State<HomePage> {
                 child: Align(
                   alignment: Alignment.bottomRight,
                   child: FloatingActionButton(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100.0)),
                     backgroundColor: _isLocationUpdateActive? Colors.red: Colors.green,
                     onPressed: () {
                       toggleLocationUpdate();
@@ -405,23 +441,35 @@ class _HomePageState extends State<HomePage> {
               ),
           ],
         ),
-        floatingActionButtonLocation: ExpandableFab.location,
-        floatingActionButton: ExpandableFab(
-          key: _key,
-          type: ExpandableFabType.fan,
-          pos: ExpandableFabPos.left,
-          distance: 100.0,
-          children: [
-            FloatingActionButton.small(
-              onPressed: () {
-                goToMyLocation();
-                _key.currentState?.toggle();
-              },
-              child: const Icon(
-                  Icons.my_location
-              ),
-            ),
-            FloatingActionButton.small(
+      bottomNavigationBar: BottomAppBar(
+        color: Colors.black,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            IconButton(
+                onPressed: () async{
+                  if (_searchController.text.isEmpty) {
+                    await UserLocation().getMyLocation();
+                    saveCurrentLocationAsHome(UserLocation().lat, UserLocation().lon);
+                  } else {
+                    var place = await InputLocation().getPlace(_searchController.text);
+                    saveHomeAddress(place);
+                  }
+                  _searchController.clear();
+                  _destinationController.clear();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          elevation: 0,
+                          backgroundColor: Colors.transparent,
+                          content: AwesomeSnackbarContent(
+                            title: 'Success!',
+                            message: 'Successfully set location as home address',
+                            contentType: ContentType.success,
+                          )
+                      )
+                  );
+                }, icon: const Icon(Icons.home), tooltip: "Set displayed location as home"),
+            IconButton(
               onPressed: () {
                 if (_showDestinationSearch) {
                   clickGpsButton();
@@ -432,62 +480,17 @@ class _HomePageState extends State<HomePage> {
                   }
                 }
                 _searchFocusNode.requestFocus();
-                _key.currentState?.toggle();
-              },
-              child: const Icon(
-                  Icons.search
-              ),
-            ),
-            FloatingActionButton.small(
+              }, icon: const Icon(Icons.search), tooltip: "Search for a location",),
+            IconButton(
+                onPressed: () {
+                  goToMyLocation();
+                }, icon: const Icon(Icons.my_location), tooltip: "Go to your current location"),
+            IconButton(
               onPressed: () {
                 clickGpsButton();
                 _polylines.clear();
                 _markers.removeWhere((marker) => marker.markerId.value == "destination");
-                _key.currentState?.toggle();
-              },
-              child: const Icon(
-                Icons.directions
-              )
-            ),
-            FloatingActionButton.small(
-              onPressed: () async{
-                _key.currentState?.toggle();
-                if (_searchController.text.isEmpty) {
-                  await UserLocation().getMyLocation();
-                  saveCurrentLocationAsHome(UserLocation().lat, UserLocation().lon);
-                } else {
-                  var place = await InputLocation().getPlace(_searchController.text);
-                  saveHomeAddress(place);
-                }
-                _searchController.clear();
-                _destinationController.clear();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    elevation: 0,
-                    backgroundColor: Colors.transparent,
-                    content: AwesomeSnackbarContent(
-                      title: 'Success!',
-                      message: 'Successfully set location as home address',
-                      contentType: ContentType.success,
-                    )
-                  )
-                );
-              },
-              child: const Icon(
-                Icons.home
-              )
-            )
-          ],
-        ),
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.black,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: <Widget>[
-            IconButton(onPressed: () {}, icon: Icon(Icons.home), tooltip: "Set displayed location as home"),
-            IconButton(onPressed: () {}, icon: Icon(Icons.search), tooltip: "Search for a location",),
-            IconButton(onPressed: () {}, icon: Icon(Icons.my_location), tooltip: "Go to your current location"),
-            IconButton(onPressed: () {}, icon: Icon(Icons.directions), tooltip: "Get direction between two locations",),
+              }, icon: const Icon(Icons.directions), tooltip: "Get direction between two locations",),
           ],
         )
       ),

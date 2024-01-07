@@ -35,7 +35,9 @@ class InputLocation {
       'start_location': jsonDecode(data)['routes'][0]['legs'][0]['start_location'],
       'end_location': jsonDecode(data)['routes'][0]['legs'][0]['end_location'],
       'polyline': jsonDecode(data)['routes'][0]['overview_polyline']['points'],
-      'polyline_decoded' : PolylinePoints().decodePolyline(jsonDecode(data)['routes'][0]['overview_polyline']['points'])
+      'polyline_decoded' : PolylinePoints().decodePolyline(jsonDecode(data)['routes'][0]['overview_polyline']['points']),
+      'distance' : jsonDecode(data)['routes'][0]['legs'][0]['distance'],
+      'duration' : jsonDecode(data)['routes'][0]['legs'][0]['duration']
     };
     return results;
 
