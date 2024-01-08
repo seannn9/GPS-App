@@ -291,15 +291,6 @@ class _HomePageState extends State<HomePage> {
     await controller.animateCamera(CameraUpdate.newCameraPosition(newCameraPosition));
   }
 
-  // get the duration of the travel
-  void displayDurationAndDistance(Map<String, dynamic> duration, Map<String, dynamic> distance) {
-    setState(() {
-      displayedDistance = distance as String?;
-      displayedDuration = duration as String?;
-    });
-  }
-
-
   @override
   void initState() {
     // TODO: implement initState
@@ -408,7 +399,6 @@ class _HomePageState extends State<HomePage> {
                                   directions['end_location']['lat'], directions['end_location']['lng'],
                                   directions['bounds_ne'], directions['bounds_sw']);
                               setPolyline(directions['polyline_decoded']);
-                              displayDurationAndDistance(directions['duration']['text'], directions['distance']['text']);
                             },
                             icon: const Icon(
                               Icons.directions
