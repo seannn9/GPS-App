@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart';
 import 'dart:convert';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
@@ -36,10 +37,9 @@ class InputLocation {
       'end_location': jsonDecode(data)['routes'][0]['legs'][0]['end_location'],
       'polyline': jsonDecode(data)['routes'][0]['overview_polyline']['points'],
       'polyline_decoded' : PolylinePoints().decodePolyline(jsonDecode(data)['routes'][0]['overview_polyline']['points']),
-      'distance' : jsonDecode(data)['routes'][0]['legs'][0]['distance.text'],
-      'duration' : jsonDecode(data)['routes'][0]['legs'][0]['duration.text']
+      'distance' : jsonDecode(data)['routes'][0]['legs'][0]['distance'],
+      'duration' : jsonDecode(data)['routes'][0]['legs'][0]['duration']
     };
     return results;
-
   }
 }

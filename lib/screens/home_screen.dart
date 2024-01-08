@@ -21,6 +21,7 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _destinationController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
+
   Set<Polyline> _polylines = Set<Polyline>();
   int _polylineCounter = 1;
 
@@ -165,7 +166,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _markers = {
         Marker(
-          markerId: const MarkerId("destination"),
+          markerId: const MarkerId("source"),
           position: LatLng(lat, lon),
         )
       };
@@ -259,7 +260,6 @@ class _HomePageState extends State<HomePage> {
               )
             )
           };
-          print(_currentPosition);
           cameraFollowUser(_currentPosition!);
         });
       }
@@ -299,6 +299,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+
   @override
   void initState() {
     // TODO: implement initState
@@ -335,10 +336,6 @@ class _HomePageState extends State<HomePage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20.0),
                       color: Colors.white,
-                      border: Border.all(
-                        color: Colors.green,
-                        width: 2.0
-                      )
                     ),
                     child: TextFormField(
                       controller: _searchController,
@@ -376,10 +373,10 @@ class _HomePageState extends State<HomePage> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20.0),
                         color: Colors.white,
-                        border: Border.all(
-                          color: Colors.green,
-                          width: 2.0
-                        )
+                        // border: Border.all(
+                        //   color: Colors.green,
+                        //   width: 2.0
+                        // )
                       ),
                       child: TextFormField(
                         controller: _destinationController,
@@ -411,7 +408,7 @@ class _HomePageState extends State<HomePage> {
                                   directions['end_location']['lat'], directions['end_location']['lng'],
                                   directions['bounds_ne'], directions['bounds_sw']);
                               setPolyline(directions['polyline_decoded']);
-                              displayDurationAndDistance(directions['duration.text'], directions['distance.text']);
+                              displayDurationAndDistance(directions['duration']['text'], directions['distance']['text']);
                             },
                             icon: const Icon(
                               Icons.directions
@@ -432,18 +429,32 @@ class _HomePageState extends State<HomePage> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100.0)),
                     backgroundColor: _isLocationUpdateActive? Colors.red: Colors.green,
                     onPressed: () {
-                      toggleLocationUpdate();
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      if (_destinationController.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                              elevation: 0,
-                              backgroundColor: Colors.transparent,
-                              content: AwesomeSnackbarContent(
-                                title: _isLocationUpdateActive? 'Started GPS' : 'Stopped GPS',
-                                message: _isLocationUpdateActive? 'GPS tracking has started' : 'GPS tracking has been paused',
-                                contentType: _isLocationUpdateActive? ContentType.success : ContentType.failure,
-                              )
+                            elevation: 0,
+                            backgroundColor: Colors.transparent,
+                            content: AwesomeSnackbarContent(
+                              title: 'Error',
+                              message: 'Please input an origin and destination first',
+                              contentType: ContentType.failure,
+                            ),
                           )
-                      );
+                        );
+                      } else {
+                        toggleLocationUpdate();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                elevation: 0,
+                                backgroundColor: Colors.transparent,
+                                content: AwesomeSnackbarContent(
+                                  title: _isLocationUpdateActive? 'Started GPS' : 'Stopped GPS',
+                                  message: _isLocationUpdateActive? 'Live tracking has started' : 'Live tracking has been paused',
+                                  contentType: _isLocationUpdateActive? ContentType.success : ContentType.failure,
+                                )
+                            )
+                        );
+                      }
                     },
                     child: _isLocationUpdateActive? const Icon(Icons.exit_to_app)
                         : const Icon(Icons.telegram)
@@ -452,58 +463,89 @@ class _HomePageState extends State<HomePage> {
               ),
           ],
         ),
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.black,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: <Widget>[
-            IconButton(
-                onPressed: () async{
-                  if (_searchController.text.isEmpty) {
-                    await UserLocation().getMyLocation();
-                    saveCurrentLocationAsHome(UserLocation().lat, UserLocation().lon);
-                  } else {
-                    var place = await InputLocation().getPlace(_searchController.text);
-                    saveHomeAddress(place);
-                  }
-                  _searchController.clear();
-                  _destinationController.clear();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          elevation: 0,
-                          backgroundColor: Colors.transparent,
-                          content: AwesomeSnackbarContent(
-                            title: 'Success!',
-                            message: 'Successfully set location as home address',
-                            contentType: ContentType.success,
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(width: 2.0, color: Colors.white)
+          )
+        ),
+        child: BottomAppBar(
+          color: Colors.black,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: <Widget>[
+              Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.green,
+                ),
+                child: IconButton(
+                    onPressed: () async{
+                      if (_searchController.text.isEmpty) {
+                        await UserLocation().getMyLocation();
+                        saveCurrentLocationAsHome(UserLocation().lat, UserLocation().lon);
+                      } else {
+                        var place = await InputLocation().getPlace(_searchController.text);
+                        saveHomeAddress(place);
+                      }
+                      _searchController.clear();
+                      _destinationController.clear();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              elevation: 0,
+                              backgroundColor: Colors.transparent,
+                              content: AwesomeSnackbarContent(
+                                title: 'Success!',
+                                message: 'Successfully set location as home address',
+                                contentType: ContentType.success,
+                              )
                           )
-                      )
-                  );
-                }, icon: const Icon(Icons.home), tooltip: "Set displayed location as home"),
-            IconButton(
-              onPressed: () {
-                if (_showDestinationSearch) {
-                  clickGpsButton();
-                  if (_isLocationUpdateActive) {
-                    setState(() {
-                      _isLocationUpdateActive = !_isLocationUpdateActive;
-                    });
-                  }
-                }
-                _searchFocusNode.requestFocus();
-              }, icon: const Icon(Icons.search), tooltip: "Search for a location",),
-            IconButton(
-                onPressed: () {
-                  goToMyLocation();
-                }, icon: const Icon(Icons.my_location), tooltip: "Go to your current location"),
-            IconButton(
-              onPressed: () {
-                clickGpsButton();
-                _polylines.clear();
-                _markers.removeWhere((marker) => marker.markerId.value == "destination");
-              }, icon: const Icon(Icons.directions), tooltip: "Get direction between two locations",),
-          ],
-        )
+                      );
+                    }, icon: const Icon(Icons.home), tooltip: "Set displayed location as home"),
+              ),
+              Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.green,
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    if (_showDestinationSearch) {
+                      clickGpsButton();
+                      if (_isLocationUpdateActive) {
+                        setState(() {
+                          _isLocationUpdateActive = !_isLocationUpdateActive;
+                        });
+                      }
+                    }
+                    _searchFocusNode.requestFocus();
+                  }, icon: const Icon(Icons.search), tooltip: "Search for a location",),
+              ),
+              Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.green,
+                ),
+                child: IconButton(
+                    onPressed: () {
+                      goToMyLocation();
+                    }, icon: const Icon(Icons.my_location), tooltip: "Go to your current location"),
+              ),
+              Container(
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.green,
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    clickGpsButton();
+                    _polylines.clear();
+                    _markers.removeWhere((marker) => marker.markerId.value == "destination");
+                  }, icon: const Icon(Icons.directions), tooltip: "Get direction between two locations",),
+              ),
+            ],
+          )
+        ),
       ),
     );
   }
