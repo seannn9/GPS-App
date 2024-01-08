@@ -411,7 +411,7 @@ class _HomePageState extends State<HomePage> {
                                   directions['end_location']['lat'], directions['end_location']['lng'],
                                   directions['bounds_ne'], directions['bounds_sw']);
                               setPolyline(directions['polyline_decoded']);
-                              displayDurationAndDistance(directions['duration']['text'], directions['distance']['text']);
+                              displayDurationAndDistance(directions['duration.text'], directions['distance.text']);
                             },
                             icon: const Icon(
                               Icons.directions
@@ -433,6 +433,17 @@ class _HomePageState extends State<HomePage> {
                     backgroundColor: _isLocationUpdateActive? Colors.red: Colors.green,
                     onPressed: () {
                       toggleLocationUpdate();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              elevation: 0,
+                              backgroundColor: Colors.transparent,
+                              content: AwesomeSnackbarContent(
+                                title: _isLocationUpdateActive? 'Started GPS' : 'Stopped GPS',
+                                message: _isLocationUpdateActive? 'GPS tracking has started' : 'GPS tracking has been paused',
+                                contentType: _isLocationUpdateActive? ContentType.success : ContentType.failure,
+                              )
+                          )
+                      );
                     },
                     child: _isLocationUpdateActive? const Icon(Icons.exit_to_app)
                         : const Icon(Icons.telegram)
