@@ -1,16 +1,9 @@
-# gps_app
+# SeaNavigate & Traxing
 
 GPS app using Google Maps API
 
-## Getting Started
+## Mobile Development Final Project CPE-31
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Submitted by:
+Aure, Althrax Chester
+Montano, Sean Ulric
